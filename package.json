@@ -1,0 +1,25 @@
+{
+  "name": "rich",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/372623460jh/rich.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/372623460jh/rich/issues"
+  },
+  "homepage": "https://github.com/372623460jh/rich#readme",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "log4js": "^3.0.0",
+    "moment": "^2.22.2",
+    "node-schedule": "^1.3.1"
+  }
+}
