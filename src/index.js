@@ -7,6 +7,7 @@ const {
   TIME_FORMAT,
   TIME_FORMAT_DAY,
   TIME_FORMAT_MIN,
+  XAU_TYPE,
 } = require('./config');
 const {
   richXauLog,
@@ -91,59 +92,87 @@ function disposeData(sinaData) {
   return isErrorData ? false : data;
 }
 
-/**
- * 定时任务
- */
-const timer = schedule.scheduleJob(scheduleRule, () => {
-  getXauData((data) => {
-    if (!localData) {
-      // 本地无记录
-      // 查询real_price表最近一条插入记录
+// /**
+//  * 定时任务
+//  */
+// const timer = schedule.scheduleJob(scheduleRule, () => {
+//   getXauData((data) => {
+//     if (!localData) {
+//       // 本地无记录
+//       // 查询real_price表最近一条插入记录
+//       localData = {
+//         time: moment('2018-12-14 06:58', TIME_FORMAT_MIN).valueOf(),
+//         realTime: moment('2018-12-14 06:58', TIME_FORMAT_MIN),
+//         price: 9999.0000,
+//       }
+//     }
+//     // 处理sina数据为自己数据
+//     const myData = disposeData(data);
+//     if (!myData) {
+//       // 报错
+//       return;
+//     }
+//     // 获取上一次数据在自己数据中的位置
+//     const lastDataInNowData = myData.sinaData[localData.time];
+//     // 插入数据的下标
+//     let insetIndex = 0;
+//     if (!lastDataInNowData) {
+//       // 上一次数据不存在查询到的sina数据中。
+//       // 有可能是之前有丢失数据;
+//       // 或者是跨天 如上一条数据是2018-12-12 06:59 是11号的最后一条数据。现在查出的第一条数据是2018-12-12 07:00 这样的话2018-12-12 06:59时间在12号的数据中找不到,就从第一条插入
+//       // 或者是节假日 如上一条数据是2018-12-15 06:59 是周六早晨的最后一条数据。12-15，12-16只能重复查到14号7.-15号6.59的数据 现在到了2018-12-17 07:00时lasttime在该数据中找不到也会从第一条数据插入
+//       // 当前数据从第0个开始插入
+//       insetIndex = 0;
+//     } else {
+//       insetIndex = lastDataInNowData.index + 1;
+//     }
+//     // 没有要插入的数据
+//     if (!myData.sinaArray[insetIndex]) {
+//       richXauLog.info('没有要插入的数据');
+//       return;
+//     }
+//     // 遍历插入数据
+//     for (; insetIndex < myData.sinaArray.length;) {
+//       // 要插入的数据
+//       const insertData = myData.sinaArray[insetIndex];
+//       if (insertData) {
+//         richXauLog.info(`插入数据----时间:${insertData.realTime.format(TIME_FORMAT)} ---价格:${insertData.price}`);
+//         // 标记上一个数据为当前插入数据
+//         localData = insertData;
+//         // 插入下标+1
+//         insetIndex += 1;
+//       } else {
+//         richXauLog.info('没有要插入的数据');
+//         break;
+//       }
+//     }
+//   });
+// });
+
+const dbController = require('./db/dbController');
+
+async function autoTask() {
+  if (!localData) {
+    // 本地无记录
+    // 查询real_price表最近一条插入记录
+    const newData = await dbController.selectNewPrice({
+      real_price_type: XAU_TYPE,
+    })
+    if (newData.length === 1) {
+      // 查询最新数据成功
+      localData = {
+        time: moment(newData[0].real_price_date).valueOf(),
+        realTime: moment(newData[0].real_price_date),
+        price: newData[0].real_price_price,
+      }
+    } else {
+      // 没有最新数据(放入一个很早的时间)
       localData = {
         time: moment('2018-12-14 06:58', TIME_FORMAT_MIN).valueOf(),
         realTime: moment('2018-12-14 06:58', TIME_FORMAT_MIN),
         price: 9999.0000,
       }
     }
-    // 处理sina数据为自己数据
-    const myData = disposeData(data);
-    if (!myData) {
-      // 报错
-      return;
-    }
-    // 获取上一次数据在自己数据中的位置
-    const lastDataInNowData = myData.sinaData[localData.time];
-    // 插入数据的下标
-    let insetIndex = 0;
-    if (!lastDataInNowData) {
-      // 上一次数据不存在查询到的sina数据中。
-      // 有可能是之前有丢失数据;
-      // 或者是跨天 如上一条数据是2018-12-12 06:59 是11号的最后一条数据。现在查出的第一条数据是2018-12-12 07:00 这样的话2018-12-12 06:59时间在12号的数据中找不到,就从第一条插入
-      // 或者是节假日 如上一条数据是2018-12-15 06:59 是周六早晨的最后一条数据。12-15，12-16只能重复查到14号7.-15号6.59的数据 现在到了2018-12-17 07:00时lasttime在该数据中找不到也会从第一条数据插入
-      // 当前数据从第0个开始插入
-      insetIndex = 0;
-    } else {
-      insetIndex = lastDataInNowData.index + 1;
-    }
-    // 没有要插入的数据
-    if (!myData.sinaArray[insetIndex]) {
-      richXauLog.info('没有要插入的数据');
-      return;
-    }
-    // 遍历插入数据
-    for (; insetIndex < myData.sinaArray.length;) {
-      // 要插入的数据
-      const insertData = myData.sinaArray[insetIndex];
-      if (insertData) {
-        richXauLog.info(`插入数据----时间:${insertData.realTime.format(TIME_FORMAT)} ---价格:${insertData.price}`);
-        // 标记上一个数据为当前插入数据
-        localData = insertData;
-        // 插入下标+1
-        insetIndex += 1;
-      } else {
-        richXauLog.info('没有要插入的数据');
-        break;
-      }
-    }
-  });
-});
+  }
+}
+autoTask();
